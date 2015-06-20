@@ -18,6 +18,12 @@ PV = "${GSTVERSION}+git${SRCPV}"
 PKGV = "${GSTVERSION}+git${GITPKGV}"
 PR = "r0"
 
+# added to have al m4 macro's into build when using bitbake with -b option.
+# Then proceeding to full image build or at least package build with recipes parsing is not needed.
+do_configure_prepend() {
+	ln -sf ${STAGING_DATADIR_NATIVE}/aclocal/*.m4 ${S}/m4/
+}
+
 EXTRA_OECONF = "--with-gstversion=${GSTVERSION}"
 
 
