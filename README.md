@@ -1,2 +1,4 @@
 # gstreamer1.0-plugin-subsink
-Subsink plugin for enigma2 with gstreamer 1.x
+Git is based on pli4 git://git.code.sf.net/p/openpli/gstsubsink branch gst-1.0.
+alias : christophecvr
+stefansat@telenet.be
