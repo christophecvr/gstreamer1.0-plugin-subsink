@@ -83,7 +83,6 @@ static GstCaps *gst_sub_sink_getcaps(GstBaseSink *psink, GstCaps *filter);
 static GstStateChangeReturn gst_sub_sink_change_state(GstElement *element, GstStateChange transition);
 static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event);
 
-
 static guint gst_sub_sink_signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_TYPE_WITH_CODE(GstSubSink, gst_sub_sink, GST_TYPE_BASE_SINK, G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, gst_sub_sink_uri_handler_init));
@@ -136,7 +135,6 @@ static void gst_sub_sink_class_init(GstSubSinkClass * klass)
 	basesink_class->get_caps = gst_sub_sink_getcaps;
 	basesink_class->event = gst_sub_sink_change_event;
 	element_class->change_state = gst_sub_sink_change_state;
-
 	g_type_class_add_private(klass, sizeof(GstSubSinkPrivate));
 }
 
@@ -250,9 +248,6 @@ flushing:
 
 static GstFlowReturn gst_sub_sink_render(GstBaseSink *psink, GstBuffer *buffer)
 {
-	GstSubSink *subsink = GST_SUB_SINK_CAST(psink);
-	GstSubSinkPrivate *priv = subsink->priv;
-
 	return gst_sub_sink_render_common(psink, buffer, FALSE);
 }
 
