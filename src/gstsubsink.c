@@ -63,6 +63,7 @@ GST_STATIC_PAD_TEMPLATE("sink",
 		GST_PAD_SINK,
 		GST_PAD_ALWAYS,
 		GST_STATIC_CAPS_ANY);
+static GstBaseSinkClass *parent_class = NULL;
 
 static void gst_sub_sink_uri_handler_init(gpointer g_iface,
 		gpointer iface_data);
@@ -79,10 +80,12 @@ static GstFlowReturn gst_sub_sink_render_common(GstBaseSink *psink, GstBuffer *b
 static GstFlowReturn gst_sub_sink_render(GstBaseSink *psink, GstBuffer *buffer);
 static GstFlowReturn gst_sub_sink_render_list(GstBaseSink *psink, GstBufferList *list);
 static GstCaps *gst_sub_sink_getcaps(GstBaseSink *psink, GstCaps *filter);
+static GstStateChangeReturn gst_sub_sink_change_state(GstElement *element, GstStateChange transition);
+static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event);
+
 
 static guint gst_sub_sink_signals[LAST_SIGNAL] = { 0 };
 
-#define gst_sub_sink_parent_class parent_class
 G_DEFINE_TYPE_WITH_CODE(GstSubSink, gst_sub_sink, GST_TYPE_BASE_SINK, G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, gst_sub_sink_uri_handler_init));
 
 static void gst_sub_sink_class_init(GstSubSinkClass * klass)
@@ -91,6 +94,7 @@ static void gst_sub_sink_class_init(GstSubSinkClass * klass)
 	GstBaseSinkClass *basesink_class =(GstBaseSinkClass *) klass;
 
 	GstElementClass *element_class = (GstElementClass *)klass;
+	parent_class = g_type_class_peek_parent(klass);
 
 	GST_DEBUG_CATEGORY_INIT(sub_sink_debug, "subsink", 0, "subsink element");
 
@@ -130,6 +134,8 @@ static void gst_sub_sink_class_init(GstSubSinkClass * klass)
 	basesink_class->render = gst_sub_sink_render;
 	basesink_class->render_list = gst_sub_sink_render_list;
 	basesink_class->get_caps = gst_sub_sink_getcaps;
+	basesink_class->event = gst_sub_sink_change_event;
+	element_class->change_state = gst_sub_sink_change_state;
 
 	g_type_class_add_private(klass, sizeof(GstSubSinkPrivate));
 }
@@ -244,6 +250,9 @@ flushing:
 
 static GstFlowReturn gst_sub_sink_render(GstBaseSink *psink, GstBuffer *buffer)
 {
+	GstSubSink *subsink = GST_SUB_SINK_CAST(psink);
+	GstSubSinkPrivate *priv = subsink->priv;
+
 	return gst_sub_sink_render_common(psink, buffer, FALSE);
 }
 
@@ -371,6 +380,80 @@ static void gst_sub_sink_uri_handler_init(gpointer g_iface, gpointer iface_data)
 	iface->get_protocols = gst_sub_sink_uri_get_protocols;
 	iface->get_uri = gst_sub_sink_uri_get_uri;
 	iface->set_uri = gst_sub_sink_uri_set_uri;
+}
+
+/*** event capture CVR ***/
+static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
+{
+	GstSubSink *subsink = GST_SUB_SINK_CAST(sink);
+	GST_INFO_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
+	gboolean ret = TRUE;
+
+	switch (GST_EVENT_TYPE(event))
+	{
+		case GST_EVENT_SEGMENT:
+		{
+			const GstSegment *segment;
+			GstFormat format;
+			gdouble rate;
+			guint64 start, end, pos;
+			gint64 start_dvb;
+			gst_event_parse_segment(event, &segment);
+			format = segment->format;
+			rate = segment->rate;
+			start = segment->start;
+			end = segment->stop;
+			pos = segment->position;
+			start_dvb = start / 11111LL;
+			GST_INFO_OBJECT(subsink, "GST_EVENT_SEGMENT rate=%f format=%d start=%"G_GUINT64_FORMAT " position=%"G_GUINT64_FORMAT, rate, format, start, pos);
+			GST_INFO_OBJECT(subsink, "SEGMENT DVB TIMESTAMP=%"G_GINT64_FORMAT " HEXFORMAT 0x%x", start_dvb, start_dvb);
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+		}
+		break;
+		default:
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+		break;
+	}
+	return ret;
+}
+
+/*** state change CVR ****/
+
+static GstStateChangeReturn gst_sub_sink_change_state(GstElement *element, GstStateChange transition)
+{
+	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
+	GstSubSink *subsink = GST_SUB_SINK_CAST(element);
+	GstSubSinkPrivate *priv = subsink->priv;
+	/* possible action to perform before the state change */
+	switch(transition)
+	{
+		case GST_STATE_CHANGE_NULL_TO_READY:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_NULL_TO_READY");
+		break;
+		case GST_STATE_CHANGE_READY_TO_PAUSED:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_READY_TO_PAUSED");
+		break;
+		case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PAUSED_TO_PLAYING");
+		break;
+	}
+
+	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+	/* possible actions to perform after state change */
+	switch(transition)
+	{
+		case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PLAYING_TO_PAUSED");
+		break;
+		case GST_STATE_CHANGE_PAUSED_TO_READY:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PAUSED_TO_READY");
+		break;
+		case GST_STATE_CHANGE_READY_TO_NULL:
+			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_READY_TO_NULL");
+		break;
+	}
+
+	return ret;
 }
 
 static gboolean plugin_init(GstPlugin *plugin)

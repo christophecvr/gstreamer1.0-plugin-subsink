@@ -55,7 +55,7 @@ struct _GstSubSink
 
 struct _GstSubSinkClass
 {
-	GstBaseSinkClass basesink_class;
+	GstBaseSinkClass parent_class;
 
 	/* signals */
 	void        (*new_buffer)   (GstSubSink *sink, GstBuffer *buffer);
