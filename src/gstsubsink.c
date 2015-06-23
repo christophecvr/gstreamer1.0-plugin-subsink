@@ -381,11 +381,27 @@ static void gst_sub_sink_uri_handler_init(gpointer g_iface, gpointer iface_data)
 static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 {
 	GstSubSink *subsink = GST_SUB_SINK_CAST(sink);
-	GST_INFO_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
+	if(strncmp(gst_event_type_get_name(GST_EVENT_TYPE(event)), "gap", 3))
+		GST_INFO_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
+	else
+		GST_DEBUG_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
+
 	gboolean ret = TRUE;
 
 	switch (GST_EVENT_TYPE(event))
 	{
+		case GST_EVENT_CAPS:
+		{
+			GstCaps *caps;
+			gst_event_parse_caps(event, &caps);
+			GST_INFO_OBJECT(subsink,"CAPS %"GST_PTR_FORMAT, caps);
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			if (!ret)
+			{
+				gst_event_unref(event);
+			}
+			break;
+		}
 		case GST_EVENT_SEGMENT:
 		{
 			const GstSegment *segment;
@@ -400,11 +416,32 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 			end = segment->stop;
 			pos = segment->position;
 			start_dvb = start / 11111LL;
-			GST_INFO_OBJECT(subsink, "GST_EVENT_SEGMENT rate=%f format=%d start=%"G_GUINT64_FORMAT " position=%"G_GUINT64_FORMAT, rate, format, start, pos);
-			GST_INFO_OBJECT(subsink, "SEGMENT DVB TIMESTAMP=%"G_GINT64_FORMAT " HEXFORMAT 0x%x", start_dvb, start_dvb);
+			GST_INFO_OBJECT(subsink, "SEGMENT rate=%f format=%d start=%"G_GUINT64_FORMAT
+							 " pos=%"G_GUINT64_FORMAT
+							 " end=%"G_GUINT64_FORMAT, rate, format, start, pos, end);
+			GST_INFO_OBJECT(subsink, "SEGMENT DVB TIMESTAMP=%"G_GINT64_FORMAT
+							 " HEXFORMAT %#"G_GINT64_MODIFIER "x", start_dvb, start_dvb);
 			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
 		}
 		break;
+		case GST_EVENT_TAG:
+		{
+			GstTagList *taglist;
+			gst_event_parse_tag(event, &taglist);
+			GST_INFO_OBJECT(subsink,"TAG %"GST_PTR_FORMAT, taglist);
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			break;
+		}
+		case GST_EVENT_TOC:
+		{
+			GstToc *toc;
+			gboolean updated;
+			gst_event_parse_toc(event, &toc, &updated);
+			GList *toc_list = gst_toc_get_entries (toc);
+			GST_INFO_OBJECT(subsink,"TOC %"GST_PTR_FORMAT, toc_list);
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			break;
+		}
 		default:
 			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
 		break;
@@ -418,19 +455,20 @@ static GstStateChangeReturn gst_sub_sink_change_state(GstElement *element, GstSt
 {
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstSubSink *subsink = GST_SUB_SINK_CAST(element);
-	GstSubSinkPrivate *priv = subsink->priv;
 	/* possible action to perform before the state change */
 	switch(transition)
 	{
 		case GST_STATE_CHANGE_NULL_TO_READY:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_NULL_TO_READY");
-		break;
+			break;
 		case GST_STATE_CHANGE_READY_TO_PAUSED:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_READY_TO_PAUSED");
-		break;
+			break;
 		case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PAUSED_TO_PLAYING");
-		break;
+			break;
+		default:
+			break;
 	}
 
 	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
@@ -439,13 +477,15 @@ static GstStateChangeReturn gst_sub_sink_change_state(GstElement *element, GstSt
 	{
 		case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PLAYING_TO_PAUSED");
-		break;
+			break;
 		case GST_STATE_CHANGE_PAUSED_TO_READY:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_PAUSED_TO_READY");
-		break;
+			break;
 		case GST_STATE_CHANGE_READY_TO_NULL:
 			GST_INFO_OBJECT(subsink,"GST_STATE_CHANGE_READY_TO_NULL");
-		break;
+			break;
+		default:
+			break;
 	}
 
 	return ret;
