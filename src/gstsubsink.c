@@ -386,7 +386,7 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 	else
 		GST_DEBUG_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
 
-	gboolean ret = TRUE;
+	gboolean ret = FALSE;
 
 	switch (GST_EVENT_TYPE(event))
 	{
@@ -395,12 +395,6 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 			GstCaps *caps;
 			gst_event_parse_caps(event, &caps);
 			GST_INFO_OBJECT(subsink,"CAPS %"GST_PTR_FORMAT, caps);
-			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-			if (!ret)
-			{
-				gst_event_unref(event);
-			}
-			break;
 		}
 		case GST_EVENT_SEGMENT:
 		{
@@ -421,16 +415,12 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 							 " end=%"G_GUINT64_FORMAT, rate, format, start, pos, end);
 			GST_INFO_OBJECT(subsink, "SEGMENT DVB TIMESTAMP=%"G_GINT64_FORMAT
 							 " HEXFORMAT %#"G_GINT64_MODIFIER "x", start_dvb, start_dvb);
-			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
 		}
-		break;
 		case GST_EVENT_TAG:
 		{
 			GstTagList *taglist;
 			gst_event_parse_tag(event, &taglist);
 			GST_INFO_OBJECT(subsink,"TAG %"GST_PTR_FORMAT, taglist);
-			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-			break;
 		}
 		case GST_EVENT_TOC:
 		{
@@ -439,12 +429,14 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 			gst_event_parse_toc(event, &toc, &updated);
 			GList *toc_list = gst_toc_get_entries (toc);
 			GST_INFO_OBJECT(subsink,"TOC %"GST_PTR_FORMAT, toc_list);
-			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-			break;
 		}
 		default:
 			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-		break;
+			if (!ret)
+			{
+				gst_event_unref(event);
+			}
+			break;
 	}
 	return ret;
 }
