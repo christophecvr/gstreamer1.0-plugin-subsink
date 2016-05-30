@@ -390,6 +390,9 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 
 	switch (GST_EVENT_TYPE(event))
 	{
+		case GST_EVENT_FLUSH:
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			break;
 		case GST_EVENT_CAPS:
 		{
 			GstCaps *caps;
