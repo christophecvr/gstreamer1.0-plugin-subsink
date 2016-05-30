@@ -386,12 +386,17 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 	else
 		GST_DEBUG_OBJECT(subsink, "EVENT %s", gst_event_type_get_name(GST_EVENT_TYPE(event)));
 
-	gboolean ret = FALSE;
+	gboolean ret = TRUE;
 
 	switch (GST_EVENT_TYPE(event))
 	{
 		case GST_EVENT_FLUSH_START:
 			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			ret = TRUE;
+			break;
+		case GST_EVENT_FLUSH_STOP:
+			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
+			ret = TRUE;
 			break;
 		case GST_EVENT_CAPS:
 		{
@@ -447,18 +452,10 @@ static gboolean gst_sub_sink_change_event(GstBaseSink *sink, GstEvent *event)
 			gst_event_parse_toc(event, &toc, &updated);
 			GList *toc_list = gst_toc_get_entries (toc);
 			GST_INFO_OBJECT(subsink,"TOC %"GST_PTR_FORMAT, toc_list);
-			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-			if (!ret)
-			{
-				gst_event_unref(event);
-			}
+			gst_event_unref(event);
 		} break;
 		default:
 			ret = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
-			if (!ret)
-			{
-				gst_event_unref(event);
-			}
 			break;
 	}
 	return ret;
